@@ -1,0 +1,19 @@
+name:                split-channel
+version:             0.1.0.0
+synopsis:
+    Control.Concurrent.Chan split into sending and receiving halves.
+license:             MIT
+license-file:        LICENSE
+author:              Leon P Smith
+maintainer:          leon@melding-monads.com
+copyright:           (c) 2012 Leon P Smith
+category:            Concurrency
+build-type:          Simple
+cabal-version:       >=1.8
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     Control.Concurrent.Chan.Split
+                       Control.Concurrent.Chan.Split.Internal
+  other-modules:       Control.Concurrent.Chan.Split.Implementation
+  build-depends:       base >= 4.3
