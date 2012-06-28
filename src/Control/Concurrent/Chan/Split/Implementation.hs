@@ -102,9 +102,9 @@ fold f recv = unsafeFold f =<< duplicate recv
 
 -- | 'unsafeFold' should usually be called only on readers that are not
 --   subsequently used in other channel operations.  Otherwise it may be
---   possible that the (non-)evaluation of pure values will cause race
+--   possible that the (non-)evaluation of pure values can cause race
 --   conditions inside IO computations.  The safer 'fold' uses 'duplicate'
---   to satisfy this condition.
+--   to avoid this issue.
 
 unsafeFold :: (a -> b -> b) -> ReceivePort a -> IO b
 unsafeFold f = loop

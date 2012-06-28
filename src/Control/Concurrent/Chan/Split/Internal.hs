@@ -10,7 +10,7 @@
 -- The point of this module is that there are many potentially useful
 -- operations on split channels not supported by the existing interface.
 -- This includes atomic sequences of operations,  and playing tricks
--- with ports.  I've included one such examples in this module;  if you
+-- with ports.  I've included two such examples in this module;  if you
 -- come up with any compelling use cases for these or other operations,
 -- let me know and I'll consider including them in the public API.
 --
@@ -70,8 +70,8 @@ sendMany s (a:as) = do
 --
 --   For example,  the service might consist of multiple threads,  some
 --   of which may send messages on the same channel as the clients.  It
---   would probably be a bug to switch the channel that those internal
---   threads are using:  so the clients would use an
+--   would probably be a bug to change the channel that those internal
+--   threads are using: so to avoid this issue the clients would use an
 --   @MVar (SendPort RequestOrInternalMessage)@ whereas the internal
 --   threads would have direct access to the same @SendPort@.
 
