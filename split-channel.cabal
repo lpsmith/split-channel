@@ -17,6 +17,7 @@ library
                        Control.Concurrent.Chan.Split.Internal
   other-modules:       Control.Concurrent.Chan.Split.Implementation
   build-depends:       base >= 4.3 && < 5
+  ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-unused-do-bind
 
 source-repository head
   type:     git
