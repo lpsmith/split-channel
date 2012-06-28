@@ -16,4 +16,13 @@ library
   exposed-modules:     Control.Concurrent.Chan.Split
                        Control.Concurrent.Chan.Split.Internal
   other-modules:       Control.Concurrent.Chan.Split.Implementation
-  build-depends:       base >= 4.3
+  build-depends:       base >= 4.3 && < 5
+
+source-repository head
+  type:     git
+  location: http://github.com/lpsmith/split-channel
+
+source-repository this
+  type:     git
+  location: http://github.com/lpsmith/split-channel
+  tag:      v0.1.0.0
