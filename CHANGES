@@ -1,2 +1,6 @@
+Version 0.1.2.0:  (2012-07-11)
+   * Added Eq and Typeable instances for SendPort and ReceivePort
+   * Improved documentation based on feedback
+
 Version 0.1.1.0:  (2012-07-10)
    * Added the 'sendMany' and 'split' operators to the public interface
