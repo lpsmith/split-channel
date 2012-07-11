@@ -48,7 +48,10 @@ new = do
 
 -- | Produces a new channel that initially has zero @ReceivePorts@.
 --   Any elements written to this channel before a reader is @'listen'ing@
---   will be eligible for garbage collection.
+--   will be eligible for garbage collection.   Note that one can
+--   one can implement 'newSendPort' in terms of 'new' by throwing away the
+--   'ReceivePort' and letting it be garbage collected,   and that one can
+--   implement 'new' in terms of 'newSendPort' and 'listen'.
 
 newSendPort :: IO (SendPort a)
 newSendPort = SendPort `fmap` (newMVar =<< newEmptyMVar)
@@ -117,8 +120,8 @@ unsafeFold f = loop
 -- | Atomically send many messages at once.   Note that this function
 --   forces the spine of the list beforehand to minimize the critical section,
 --   which also helps prevent exceptions at inopportune times.  Trying to send
---   an infinite list will never send anything,  though it will allocate a lot
---   of memory trying to do so.
+--   an infinite list will never send anything,  though it will allocate and
+--   retain a lot of memory trying to do so.
 
 sendMany :: SendPort a -> [a] -> IO ()
 sendMany _ [] = return ()
@@ -138,31 +141,47 @@ sendMany s (a:as) = do
 -- | This function associates a brand new channel with a existing send
 --   port,  returning a new receive port associated with the existing
 --   send port and a new send port associated with the existing receive
---   ports.
+--   ports of the existing send port.
 --
 --   A possible use case is to transparently replace the backend of a service
---   without affecting the clients of that service.  For example, we might
---   use it along the following lines:
+--   without affecting the clients of that service.  For example, 'split' might
+--   be used along the following lines:
 --
 -- @
--- swapService :: SendPort Request -> IO ()
+-- data Service = Service { sp :: SendPort Request, .. }
+--
+-- swapService :: Service -> IO ()
 -- swapService s = do
---     (r', s') <- split s
---     send s' ShutdownRequest
---     forkNewService r'
+--     (rp', sp') <- split (sp s)
+--     send sp' ShutdownRequest
+--     forkNewService rp'
 -- @
 --
 --   This is not a good solution in all cases.  For example,  the service
 --   might consist of multiple threads,  and maybe some of those send
 --   internal messages on the same channel as the clients.   It would probably
---   be a bug to change the destination that those internal messages go.
+--   be a bug to change the destination of those internal messages.
 --
 --   Wrapping the @SendPort@ in 'MVar' would introduce an extra layer of
 --   indirection,  but also allows you to be selective about which senders
 --   observe the effect.  The clients would use an
 --   @MVar (SendPort RequestOrInternalMessage)@ whereas the internal
 --   threads would use the @SendPort RequestOrInternalMessage@ directly,
---   without going through the MVar.
+--   without going through the MVar.   So instead we have something that
+--   looks like:
+--
+-- @
+-- data Service = Service { spRef :: MVar (SendPort Request), .. }
+--
+-- swapService :: Service -> IO ()
+-- swapService s = do
+--     (sp', rp') <- new
+--     sp <- swapMVar (spRef s) sp'
+--     send sp ShutdownRequest
+--     forkNewService rp'
+-- @
+--
+--   Note that this alternative does not use @split@ at all.
 
 split :: SendPort a -> IO (ReceivePort a, SendPort a)
 split (SendPort s) = do

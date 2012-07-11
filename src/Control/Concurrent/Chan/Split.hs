@@ -8,7 +8,7 @@
 --
 -- This package provides an unbounded, imperative queue that is supposed to
 -- be thread safe and asynchronous exception safe.  It is essentially the
--- same communication abstraction as 'Control.Concurrent.Chan.Chan',  except
+-- same communication mechanism as 'Control.Concurrent.Chan.Chan',  except
 -- that each channel is split into separate sending and receiving ends,
 -- called 'SendPort' and 'ReceivePort' respectively.  This has at least two
 -- advantages:
@@ -18,13 +18,20 @@
 -- 2. Channels can have zero @ReceivePorts@ associated with them.  Messages
 --    written to such a channel disappear into the aether and can be
 --    garbage collected.  Note that  @ReceivePorts@ can be subsequently
---    attached to such a channel via 'listen'.
+--    attached to such a channel via 'listen',  and can be detached via
+--    garbage collection.  
+--
+--    By contrast,  'Control.Concurrent.Chan.Chan' couples a @SendPort@ and
+--    a @ReceivePort@ together in a pair.   Thus keeping a reference to a
+--    @SendPort@ implies that there is at least one reference to a
+--    @ReceivePort@,  which means that messages cannot be garbage collected
+--    from an active channel if nobody is listening. 
 --
 -- A channel can have multiple @ReceivePorts@.  This results in a publish-
--- subscribe pattern of communication:  every element will be delivered to
+-- subscribe pattern of communication:  every message will be delivered to
 -- every port.   Alternatively,  multiple threads can read from a single
 -- port.  This results in a push-pull pattern of communication, similar to
--- ZeroMQ:  every element will be delivered to exactly one thread.   Of
+-- ZeroMQ:  every message will be delivered to exactly one thread.   Of
 -- course both can be used together to form hybrid patterns of
 -- communication.
 --
