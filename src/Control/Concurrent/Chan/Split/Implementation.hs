@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveDataTypeable #-}
+
 ------------------------------------------------------------------------------
 -- |
 -- Module      :  Control.Concurrent.Chan.Split.Implementation
@@ -12,6 +14,7 @@ module Control.Concurrent.Chan.Split.Implementation where
 
 import Control.Concurrent.MVar
 import Control.Exception(mask_)
+import Data.Typeable(Typeable)
 import System.IO.Unsafe(unsafeInterleaveIO)
 
 type List a = MVar (Item a)
@@ -22,7 +25,7 @@ data Item a = Item a !(List a)
 --   @SendPort@ per channel,  though it can be used from multiple threads.
 --   Messages can be sent to the channel using 'send'.
 
-newtype SendPort a = SendPort (MVar (List a))
+newtype SendPort a = SendPort (MVar (List a)) deriving (Eq, Typeable)
 
 
 -- | @ReceivePorts@ represent the other end of a channel.   A channel
@@ -32,7 +35,7 @@ newtype SendPort a = SendPort (MVar (List a))
 --   single thread in a push/pull like manner.  Use 'receive' to fetch
 --   messages from the channel.
 
-newtype ReceivePort a = ReceivePort (MVar (List a))
+newtype ReceivePort a = ReceivePort (MVar (List a)) deriving (Eq, Typeable)
 
 
 -- | Creates a new channel and a  @(SendPort, ReceivePort)@ pair representing
