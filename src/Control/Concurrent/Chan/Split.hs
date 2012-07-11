@@ -55,10 +55,12 @@ module Control.Concurrent.Chan.Split
      , ReceivePort
      , new
      , newSendPort
+     , send
+     , receive
+     , sendMany
      , listen
      , duplicate
-     , receive
-     , send
+     , split
      , fold
      , unsafeFold
      ) where

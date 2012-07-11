@@ -113,3 +113,61 @@ unsafeFold f = loop
        a <- receive source
        b <- loop source
        return (f a b)
+
+-- | Atomically send many messages at once.   Note that this function
+--   forces the spine of the list beforehand to minimize the critical section,
+--   which also helps prevent exceptions at inopportune times.  Trying to send
+--   an infinite list will never send anything,  though it will allocate a lot
+--   of memory trying to do so.
+
+sendMany :: SendPort a -> [a] -> IO ()
+sendMany _ [] = return ()
+sendMany s (a:as) = do
+    new_hole <- newEmptyMVar
+    loop s (Item a new_hole) new_hole as
+  where
+    loop s msgs hole (a:as) = do
+       new_hole <- newEmptyMVar
+       putMVar hole (Item a new_hole)
+       loop s msgs new_hole as
+    loop (SendPort s) msgs new_hole [] = mask_ $ do
+       hole <- takeMVar s
+       putMVar hole msgs
+       putMVar s new_hole
+
+-- | This function associates a brand new channel with a existing send
+--   port,  returning a new receive port associated with the existing
+--   send port and a new send port associated with the existing receive
+--   ports.
+--
+--   A possible use case is to transparently replace the backend of a service
+--   without affecting the clients of that service.  For example, we might
+--   use it along the following lines:
+--
+-- @
+-- swapService :: SendPort Request -> IO ()
+-- swapService s = do
+--     (r', s') <- split s
+--     send s' ShutdownRequest
+--     forkNewService r'
+-- @
+--
+--   This is not a good solution in all cases.  For example,  the service
+--   might consist of multiple threads,  and maybe some of those send
+--   internal messages on the same channel as the clients.   It would probably
+--   be a bug to change the destination that those internal messages go.
+--
+--   Wrapping the @SendPort@ in 'MVar' would introduce an extra layer of
+--   indirection,  but also allows you to be selective about which senders
+--   observe the effect.  The clients would use an
+--   @MVar (SendPort RequestOrInternalMessage)@ whereas the internal
+--   threads would use the @SendPort RequestOrInternalMessage@ directly,
+--   without going through the MVar.
+
+split :: SendPort a -> IO (ReceivePort a, SendPort a)
+split (SendPort s) = do
+    new_hole <- newEmptyMVar
+    old_hole <- swapMVar s new_hole
+    rp <- ReceivePort `fmap` newMVar new_hole
+    sp <- SendPort `fmap` newMVar old_hole
+    return (rp, sp)
