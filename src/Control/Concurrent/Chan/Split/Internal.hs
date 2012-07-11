@@ -27,7 +27,7 @@ module Control.Concurrent.Chan.Split.Internal
      , List
      , Item(..)
      , sendMany
-     , sendAndResetChannel
+     , split
      ) where
 
 import Control.Concurrent.MVar
@@ -55,32 +55,40 @@ sendMany s (a:as) = do
        putMVar hole msgs
        putMVar s new_hole
 
--- | Atomically sends a message on a channel,  and then associates a new
---   channel with the @SendPort@.   This prevents the existing @ReceivePorts@
---   on the old channel from receiving further messages,  and creates a new
---   ReceivePort for the new channel.  A possible use case is to transparently
---   replace the backend of a service without effecting the clients of that
---   service.
+-- | This function associates a brand new channel with a existing send
+--   port,  returning a receive port associated with the new channel 
+--   and a new send port associated with the old channel.
+-- 
+--   A possible use case is to transparently replace the backend of a service
+--   without affecting the clients of that service.  For example, we might 
+--   use it along the following lines:
 --
---   This is probably not a good idea, however.   It's probably better to
---   put the SendPort in an MVar instead.  This introduces an extra layer
---   of indirection,  but also allows you to be selective about which
---   senders see the effect,  by providing either an @MVar@ to the @SendPort@
---   or providing the @SendPort@ directly.
+-- @
+--       swapService :: SendPort Request -> IO ()
+--       swapService s = do
+--           (r', s') <- split s
+--           send s' ShutdownRequest
+--           forkNewService r'
+-- @
+--
+--   However, I'm not sure this is a good justification for the existence
+--   of the 'split' operator.  It is probably better to put the @SendPort@
+--   in an @MVar@ instead of using 'split'.  This introduces an extra layer
+--   of indirection, but also allows you to be selective about which senders
+--   observe the effect.
 --
 --   For example,  the service might consist of multiple threads,  some
 --   of which may send messages on the same channel as the clients.  It
 --   would probably be a bug to change the channel that those internal
---   threads are using: so to avoid this issue the clients would use an
+--   threads are using: so the clients would use an
 --   @MVar (SendPort RequestOrInternalMessage)@ whereas the internal
---   threads would have direct access to the same @SendPort@.
+--   threads would use the @SendPort RequestOrInternalMessage@ directly,
+--   without going through the MVar.
 
-sendAndResetChannel :: SendPort a -> a -> IO (ReceivePort a)
-sendAndResetChannel (SendPort s) a = do
-   new_hole  <- newEmptyMVar
-   new_hole' <- newEmptyMVar
-   mask_ $ do
-     old_hole <- takeMVar s
-     putMVar old_hole (Item a new_hole)
-     putMVar s new_hole'
-   ReceivePort `fmap` newMVar new_hole'
+split :: SendPort a -> IO (ReceivePort a, SendPort a)
+split (SendPort s) = do
+    new_hole <- newEmptyMVar
+    old_hole <- swapMVar s new_hole
+    rp <- ReceivePort `fmap` newMVar new_hole
+    sp <- SendPort `fmap` newMVar old_hole
+    return (rp, sp)
