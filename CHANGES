@@ -1,3 +1,6 @@
+Version 0.1.2.1:  (2012-07-31)
+   * Unpacked the MVar in the linked list of messages
+
 Version 0.1.2.0:  (2012-07-11)
    * Added Eq and Typeable instances for SendPort and ReceivePort
    * Improved documentation based on feedback

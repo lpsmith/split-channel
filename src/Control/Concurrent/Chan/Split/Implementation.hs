@@ -19,7 +19,7 @@ import System.IO.Unsafe(unsafeInterleaveIO)
 
 type List a = MVar (Item a)
 
-data Item a = Item a !(List a)
+data Item a = Item a {-# UNPACK #-} !(List a)
 
 -- | @SendPorts@ represent one end of the channel.   There is only one
 --   @SendPort@ per channel,  though it can be used from multiple threads.
