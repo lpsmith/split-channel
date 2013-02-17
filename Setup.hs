@@ -3,7 +3,6 @@ import Distribution.Simple.Setup   ( haddockDistPref, Flag(..))
 import Distribution.Verbosity      ( normal )
 import Distribution.Simple.Utils   ( copyFiles )
 import Distribution.Text           ( display )
-import Text.Groom
 import System.FilePath ((</>))
 import System.Directory
 

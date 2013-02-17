@@ -1,5 +1,5 @@
 name:                split-channel
-version:             0.1.2.2
+version:             0.1.2.3
 synopsis:
     Control.Concurrent.Chan split into sending and receiving halves.
 description:
@@ -41,4 +41,4 @@ source-repository head
 source-repository this
   type:     git
   location: http://github.com/lpsmith/split-channel
-  tag:      v0.1.2.2
+  tag:      v0.1.2.3
