@@ -15,10 +15,10 @@
 -- If you come up with any new operations and some good use cases for them,
 -- let me know and I'll consider including them here or in the public API.
 --
--- Note that the usual caveat that this module does not follow Cabal's
--- Package Versioning policy applies.   This can change at any time,
--- potentially even breaking your code without causing a compile-time
--- error.
+-- Note that the usual caveat that the Package Version Policy does not
+-- apply to this module.   The interface can change at any time,
+-- potentially breaking your code without even causing a compile-time
+-- error. 
 --
 ------------------------------------------------------------------------------
 

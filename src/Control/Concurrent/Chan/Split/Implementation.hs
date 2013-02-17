@@ -50,7 +50,7 @@ new = do
 
 
 -- | Produces a new channel that initially has zero @ReceivePorts@.
---   Any elements written to this channel before a reader is @'listen'ing@
+--   Any messages written to this channel before a reader is @'listen'ing@
 --   will be eligible for garbage collection.   Note that one can
 --   one can implement 'newSendPort' in terms of 'new' by throwing away the
 --   'ReceivePort' and letting it be garbage collected,   and that one can
@@ -62,7 +62,7 @@ newSendPort = SendPort `fmap` (newMVar =<< newEmptyMVar)
 
 -- | Create a new @ReceivePort@ attached the same channel as a given
 --   @SendPort@.  This @ReceivePort@ starts out empty, and remains so
---   until more elements are written to the @SendPort@.
+--   until more messages are written to the @SendPort@.
 
 listen :: SendPort a  -> IO (ReceivePort a)
 listen   (SendPort a) =  ReceivePort `fmap` withMVar a newMVar
@@ -77,7 +77,7 @@ duplicate :: ReceivePort a  -> IO (ReceivePort a)
 duplicate   (ReceivePort a) =  ReceivePort `fmap` withMVar a newMVar
 
 
--- | Fetch an element from a channel.  If no element is available,  it blocks
+-- | Fetch a message from a channel.  If no message is available,  it blocks
 --   until one is.  Can be used in conjunction with @System.Timeout@.
 
 receive :: ReceivePort a -> IO a
@@ -86,8 +86,7 @@ receive (ReceivePort r) = do
       (Item val new_read_end) <- readMVar read_end
       return (new_read_end, val)
 
-
--- | Send an element to a channel.   This is asynchronous and does not block.
+-- | Send a message to a channel.   This is asynchronous and does not block.
 
 send :: SendPort a -> a -> IO ()
 send (SendPort s) a = do
@@ -141,50 +140,13 @@ sendMany s (a:as) = do
        putMVar hole msgs
        putMVar s new_hole
 
--- | This function associates a brand new channel with a existing send
---   port,  returning a new receive port associated with the existing
---   send port and a new send port associated with the existing receive
---   ports of the existing send port.
+-- | This function splits an existing channel in two;  associating
+--   a new receive port with the old send port,  and a new send
+--   port with the existing receive ports.   The new receive port
+--   starts out empty,  while the existing receive ports retain
+--   any unprocessed messages.
 --
---   A possible use case is to transparently replace the backend of a service
---   without affecting the clients of that service.  For example, 'split' might
---   be used along the following lines:
---
--- @
--- data Service = Service { sp :: SendPort Request, .. }
---
--- swapService :: Service -> IO ()
--- swapService s = do
---     (rp', sp') <- split (sp s)
---     send sp' ShutdownRequest
---     forkNewService rp'
--- @
---
---   This is not a good solution in all cases.  For example,  the service
---   might consist of multiple threads,  and maybe some of those send
---   internal messages on the same channel as the clients.   It would probably
---   be a bug to change the destination of those internal messages.
---
---   Wrapping the @SendPort@ in 'MVar' would introduce an extra layer of
---   indirection,  but also allows you to be selective about which senders
---   observe the effect.  The clients would use an
---   @MVar (SendPort RequestOrInternalMessage)@ whereas the internal
---   threads would use the @SendPort RequestOrInternalMessage@ directly,
---   without going through the MVar.   So instead we have something that
---   looks like:
---
--- @
--- data Service = Service { spRef :: MVar (SendPort Request), .. }
---
--- swapService :: Service -> IO ()
--- swapService s = do
---     (sp', rp') <- new
---     sp <- swapMVar (spRef s) sp'
---     send sp ShutdownRequest
---     forkNewService rp'
--- @
---
---   Note that this alternative does not use @split@ at all.
+--   <<split.png>>
 
 split :: SendPort a -> IO (ReceivePort a, SendPort a)
 split (SendPort s) = do

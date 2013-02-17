@@ -1,5 +1,5 @@
 name:                split-channel
-version:             0.1.2.1
+version:             0.1.2.2
 synopsis:
     Control.Concurrent.Chan split into sending and receiving halves.
 license:             MIT
@@ -8,8 +8,11 @@ author:              Leon P Smith
 maintainer:          leon@melding-monads.com
 copyright:           (c) 2012 Leon P Smith
 category:            Concurrency
-build-type:          Simple
+build-type:          Custom
 cabal-version:       >=1.8
+
+extra-source-files:
+     doc/split.png
 
 library
   hs-source-dirs:      src
@@ -26,4 +29,4 @@ source-repository head
 source-repository this
   type:     git
   location: http://github.com/lpsmith/split-channel
-  tag:      v0.1.2.1
+  tag:      v0.1.2.2
