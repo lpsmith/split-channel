@@ -13,7 +13,7 @@
 module Control.Concurrent.Chan.Split.Implementation where
 
 import Control.Concurrent.MVar
-import Control.Exception(mask_)
+import Control.Exception(mask_, onException)
 import Data.Typeable(Typeable)
 import System.IO.Unsafe(unsafeInterleaveIO)
 
@@ -81,8 +81,8 @@ duplicate   (ReceivePort a) =  ReceivePort `fmap` withMVar a newMVar
 --   until one is.  Can be used in conjunction with @System.Timeout@.
 
 receive :: ReceivePort a -> IO a
-receive (ReceivePort r) = do
-    modifyMVar r $ \read_end -> do
+receive (ReceivePort r) =
+    compat_modifyMVarMasked r $ \read_end -> do
       (Item val new_read_end) <- readMVar read_end
       return (new_read_end, val)
 
@@ -155,3 +155,16 @@ split (SendPort s) = do
     rp <- ReceivePort `fmap` newMVar new_hole
     sp <- SendPort `fmap` newMVar old_hole
     return (rp, sp)
+
+
+------------------------------------------------------------------------
+-- Compatibility; definitions copied from the base package
+
+-- base 4.6: 'Control.Concurrent.MVar.modifyMVarMasked'
+compat_modifyMVarMasked :: MVar a -> (a -> IO (a,b)) -> IO b
+compat_modifyMVarMasked m io =
+  mask_ $ do
+    a      <- takeMVar m
+    (a',b) <- io a `onException` putMVar m a
+    putMVar m a'
+    return b
