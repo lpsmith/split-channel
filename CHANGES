@@ -1,3 +1,18 @@
+Version 0.2.0.0:  (2013-03-16)
+   * Optimized the implementation of `fold`, courtesy of Joey Adams.
+
+   * Removed `unsafeFold` altogether, as it is now obsolete and can
+     be implemented using the public interface.
+
+   * Fixed a theoretical deadlock bug in `receive`,  tracking changes
+     made in GHC 7.6,  courtesy of Joey Adams.
+
+   * Fixed a deadlock bug in `duplicate` and `fold`.  Hat tip to Joey
+     Adams for reporting these.
+
+Version 0.1.2.3:  (2013-02-17)
+   * Revised the documentation of `split`, which now includes a diagram.
+
 Version 0.1.2.1:  (2012-07-31)
    * Unpacked the MVar in the linked list of messages
 
@@ -6,4 +21,4 @@ Version 0.1.2.0:  (2012-07-11)
    * Improved documentation based on feedback
 
 Version 0.1.1.0:  (2012-07-10)
-   * Added the 'sendMany' and 'split' operators to the public interface
+   * Added the `sendMany` and `split` operators to the public interface
