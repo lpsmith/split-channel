@@ -110,8 +110,20 @@ send (SendPort s) a = do
 --   with the same 'ReceivePort'.
 
 fold :: (a -> b -> b) -> ReceivePort a -> IO b
-fold f recv = unsafeFold f =<< duplicate recv
+fold f (ReceivePort r) = readMVar r >>= foldList f
+    -- To avoid the blocking caveat, we could put unsafeInterleaveIO on
+    -- the outside, but it would break determinism: items taken from the
+    -- 'ReceivePort' before forcing the return value would be missed by
+    -- the fold.
 
+-- | Traverse a 'List' directly.  Avoids the outer 'MVar' overhead of calling
+-- 'receive' over and over.
+foldList :: (a -> b -> b) -> List a -> IO b
+foldList f list =
+    unsafeInterleaveIO $ do
+        Item a list' <- readMVar list
+        b <- foldList f list'
+        return (f a b)
 
 -- | 'unsafeFold' should usually be called only on readers that are not
 --   subsequently used in other channel operations.  Otherwise it may be
@@ -126,6 +138,10 @@ unsafeFold f = loop
        a <- receive source
        b <- loop source
        return (f a b)
+
+   -- Do not implement 'unsafeFold' with 'foldList', or it will change the
+   -- semantics.  Currently, 'unsafeFold' updates the 'ReceivePort' as it goes.
+
 
 -- | Atomically send many messages at once.   Note that this function
 --   forces the spine of the list beforehand to minimize the critical section,
