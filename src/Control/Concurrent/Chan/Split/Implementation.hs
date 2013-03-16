@@ -13,7 +13,7 @@
 module Control.Concurrent.Chan.Split.Implementation where
 
 import Control.Concurrent.MVar
-import Control.Exception(mask_)
+import Control.Exception(mask_, onException)
 import Data.Typeable(Typeable)
 import System.IO.Unsafe(unsafeInterleaveIO)
 
@@ -72,6 +72,9 @@ listen   (SendPort a) =  ReceivePort `fmap` withMVar a newMVar
 --   @ReceivePort@.  These two ports will receive the same messages.
 --   Any messages in the channel that have not been consumed by the
 --   existing port will also appear in the new port.
+--
+--   Warning: this will block if another thread is blocked on 'receive' with
+--   the same 'ReceivePort'.
 
 duplicate :: ReceivePort a  -> IO (ReceivePort a)
 duplicate   (ReceivePort a) =  ReceivePort `fmap` withMVar a newMVar
@@ -81,8 +84,8 @@ duplicate   (ReceivePort a) =  ReceivePort `fmap` withMVar a newMVar
 --   until one is.  Can be used in conjunction with @System.Timeout@.
 
 receive :: ReceivePort a -> IO a
-receive (ReceivePort r) = do
-    modifyMVar r $ \read_end -> do
+receive (ReceivePort r) =
+    compat_modifyMVarMasked r $ \read_end -> do
       (Item val new_read_end) <- readMVar read_end
       return (new_read_end, val)
 
@@ -98,12 +101,29 @@ send (SendPort s) a = do
 
 -- | A right fold over a receiver,  a generalization of @getChanContents@
 --   where @getChanContents = fold (:)@. Note that the type of 'fold'
---   implies that the folding function needs to be sufficienctly non-strict,
+--   implies that the folding function needs to be sufficiently non-strict,
 --   otherwise the result cannot be productive.
+--
+--   Normally, this will return immediately; forcing the returned value will
+--   wait for the next item using lazy IO.  However, 'fold' has the same caveat
+--   as 'duplicate': it will block if other threads are blocked on 'receive'
+--   with the same 'ReceivePort'.
 
 fold :: (a -> b -> b) -> ReceivePort a -> IO b
-fold f recv = unsafeFold f =<< duplicate recv
+fold f (ReceivePort r) = readMVar r >>= foldList f
+    -- To avoid the blocking caveat, we could put unsafeInterleaveIO on
+    -- the outside, but it would break determinism: items taken from the
+    -- 'ReceivePort' before forcing the return value would be missed by
+    -- the fold.
 
+-- | Traverse a 'List' directly.  Avoids the outer 'MVar' overhead of calling
+-- 'receive' over and over.
+foldList :: (a -> b -> b) -> List a -> IO b
+foldList f list =
+    unsafeInterleaveIO $ do
+        Item a list' <- readMVar list
+        b <- foldList f list'
+        return (f a b)
 
 -- | 'unsafeFold' should usually be called only on readers that are not
 --   subsequently used in other channel operations.  Otherwise it may be
@@ -118,6 +138,10 @@ unsafeFold f = loop
        a <- receive source
        b <- loop source
        return (f a b)
+
+   -- Do not implement 'unsafeFold' with 'foldList', or it will change the
+   -- semantics.  Currently, 'unsafeFold' updates the 'ReceivePort' as it goes.
+
 
 -- | Atomically send many messages at once.   Note that this function
 --   forces the spine of the list beforehand to minimize the critical section,
@@ -155,3 +179,16 @@ split (SendPort s) = do
     rp <- ReceivePort `fmap` newMVar new_hole
     sp <- SendPort `fmap` newMVar old_hole
     return (rp, sp)
+
+
+------------------------------------------------------------------------
+-- Compatibility; definitions copied from the base package
+
+-- base 4.6: 'Control.Concurrent.MVar.modifyMVarMasked'
+compat_modifyMVarMasked :: MVar a -> (a -> IO (a,b)) -> IO b
+compat_modifyMVarMasked m io =
+  mask_ $ do
+    a      <- takeMVar m
+    (a',b) <- io a `onException` putMVar m a
+    putMVar m a'
+    return b

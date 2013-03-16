@@ -27,6 +27,7 @@ module Control.Concurrent.Chan.Split.Internal
      , ReceivePort(..)
      , List
      , Item(..)
+     , foldList
      ) where
 
 import Control.Concurrent.Chan.Split.Implementation
