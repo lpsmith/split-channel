@@ -70,7 +70,7 @@ newSendPort = SendPort `fmap` (newMVar =<< newEmptyMVar)
 --   until more messages are written to the @SendPort@.
 
 listen :: SendPort a  -> IO (ReceivePort a)
-listen   (SendPort a) =  ReceivePort <$> withMVar a newIORef <*> newMVar ()
+listen (SendPort a) = ReceivePort <$> (newIORef =<< readMVar a) <*> newMVar ()
 
 
 -- | Create a new @ReceivePort@ attached to the same channel as another
@@ -89,7 +89,7 @@ duplicate   (ReceivePort ref _) = do
 
 receive :: ReceivePort a -> IO a
 receive (ReceivePort ref lock) =
-    withMVarMasked lock $ \_ -> do
+    withLock lock $ do
       read_end <- readIORef ref
       (Item val new_read_end) <- readMVar read_end
       writeIORef ref new_read_end
@@ -160,11 +160,11 @@ split (SendPort s) = do
     return (rp, sp)
 
 
-{-# INLINE withMVarMasked #-}
-withMVarMasked :: MVar a -> (a -> IO b) -> IO b
-withMVarMasked m io =
+{-# INLINE withLock #-}
+withLock :: MVar () -> IO b -> IO b
+withLock m io =
   mask_ $ do
-    a <- takeMVar m
-    b <- io a `onException` putMVar m a
-    putMVar m a
+    _ <- takeMVar m
+    b <- io `onException` putMVar m ()
+    putMVar m ()
     return b
