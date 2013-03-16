@@ -9,7 +9,7 @@ description:
     no receive ports associated with them can be reliably garbage collected.
     .
     In addition, this module incorporates several of clean-ups and additions
-    to the venerable Chan.  Most notably,  the deprecated thread-safe
+    to the venerable Chan.  Most notably,  the deprecated thread-unsafe
     functions have been removed,  the ability to @duplicate@ Receive Ports
     has been added,  the @sendMany@ operation allows for multiple messages
     to be sent atomically,  and the @split@ operation turns a single
