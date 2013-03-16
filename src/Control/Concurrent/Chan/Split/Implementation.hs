@@ -12,8 +12,10 @@
 
 module Control.Concurrent.Chan.Split.Implementation where
 
+import Control.Applicative
 import Control.Concurrent.MVar
 import Control.Exception(mask_, onException)
+import Data.IORef
 import Data.Typeable(Typeable)
 import System.IO.Unsafe(unsafeInterleaveIO)
 
@@ -35,7 +37,10 @@ newtype SendPort a = SendPort (MVar (List a)) deriving (Eq, Typeable)
 --   single thread in a push/pull like manner.  Use 'receive' to fetch
 --   messages from the channel.
 
-newtype ReceivePort a = ReceivePort (MVar (List a)) deriving (Eq, Typeable)
+data ReceivePort a = ReceivePort
+    { rp_ref  :: {-# UNPACK #-} !(IORef (List a))
+    , rp_lock :: {-# UNPACK #-} !(MVar ())
+    } deriving (Eq, Typeable)
 
 
 -- | Creates a new channel and a  @(SendPort, ReceivePort)@ pair representing
@@ -44,8 +49,8 @@ newtype ReceivePort a = ReceivePort (MVar (List a)) deriving (Eq, Typeable)
 new :: IO (SendPort a, ReceivePort a)
 new = do
    hole <- newEmptyMVar
-   send <- SendPort `fmap` newMVar hole
-   recv <- ReceivePort `fmap` newMVar hole
+   send <- SendPort <$> newMVar hole
+   recv <- ReceivePort <$> newIORef hole <*> newMVar ()
    return (send, recv)
 
 
@@ -65,29 +70,30 @@ newSendPort = SendPort `fmap` (newMVar =<< newEmptyMVar)
 --   until more messages are written to the @SendPort@.
 
 listen :: SendPort a  -> IO (ReceivePort a)
-listen   (SendPort a) =  ReceivePort `fmap` withMVar a newMVar
+listen   (SendPort a) =  ReceivePort <$> withMVar a newIORef <*> newMVar ()
 
 
 -- | Create a new @ReceivePort@ attached to the same channel as another
 --   @ReceivePort@.  These two ports will receive the same messages.
 --   Any messages in the channel that have not been consumed by the
 --   existing port will also appear in the new port.
---
---   Warning: this will block if another thread is blocked on 'receive' with
---   the same 'ReceivePort'.
 
 duplicate :: ReceivePort a  -> IO (ReceivePort a)
-duplicate   (ReceivePort a) =  ReceivePort `fmap` withMVar a newMVar
-
+duplicate   (ReceivePort ref _) = do
+    rp_ref  <- newIORef =<< readIORef ref
+    rp_lock <- newMVar ()
+    return $! ReceivePort rp_ref rp_lock
 
 -- | Fetch a message from a channel.  If no message is available,  it blocks
 --   until one is.  Can be used in conjunction with @System.Timeout@.
 
 receive :: ReceivePort a -> IO a
-receive (ReceivePort r) =
-    compat_modifyMVarMasked r $ \read_end -> do
+receive (ReceivePort ref lock) =
+    withMVarMasked lock $ \_ -> do
+      read_end <- readIORef ref
       (Item val new_read_end) <- readMVar read_end
-      return (new_read_end, val)
+      writeIORef ref new_read_end
+      return val
 
 -- | Send a message to a channel.   This is asynchronous and does not block.
 
@@ -103,18 +109,9 @@ send (SendPort s) a = do
 --   where @getChanContents = fold (:)@. Note that the type of 'fold'
 --   implies that the folding function needs to be sufficiently non-strict,
 --   otherwise the result cannot be productive.
---
---   Normally, this will return immediately; forcing the returned value will
---   wait for the next item using lazy IO.  However, 'fold' has the same caveat
---   as 'duplicate': it will block if other threads are blocked on 'receive'
---   with the same 'ReceivePort'.
 
 fold :: (a -> b -> b) -> ReceivePort a -> IO b
-fold f (ReceivePort r) = readMVar r >>= foldList f
-    -- To avoid the blocking caveat, we could put unsafeInterleaveIO on
-    -- the outside, but it would break determinism: items taken from the
-    -- 'ReceivePort' before forcing the return value would be missed by
-    -- the fold.
+fold f (ReceivePort ref _) = readIORef ref >>= foldList f
 
 -- | Traverse a 'List' directly.  Avoids the outer 'MVar' overhead of calling
 -- 'receive' over and over.
@@ -176,19 +173,16 @@ split :: SendPort a -> IO (ReceivePort a, SendPort a)
 split (SendPort s) = do
     new_hole <- newEmptyMVar
     old_hole <- swapMVar s new_hole
-    rp <- ReceivePort `fmap` newMVar new_hole
+    rp <- ReceivePort <$> newIORef new_hole <*> newMVar ()
     sp <- SendPort `fmap` newMVar old_hole
     return (rp, sp)
 
 
-------------------------------------------------------------------------
--- Compatibility; definitions copied from the base package
-
--- base 4.6: 'Control.Concurrent.MVar.modifyMVarMasked'
-compat_modifyMVarMasked :: MVar a -> (a -> IO (a,b)) -> IO b
-compat_modifyMVarMasked m io =
+{-# INLINE withMVarMasked #-}
+withMVarMasked :: MVar a -> (a -> IO b) -> IO b
+withMVarMasked m io =
   mask_ $ do
-    a      <- takeMVar m
-    (a',b) <- io a `onException` putMVar m a
-    putMVar m a'
+    a <- takeMVar m
+    b <- io a `onException` putMVar m a
+    putMVar m a
     return b
