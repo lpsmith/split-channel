@@ -98,7 +98,7 @@ send (SendPort s) a = do
 
 -- | A right fold over a receiver,  a generalization of @getChanContents@
 --   where @getChanContents = fold (:)@. Note that the type of 'fold'
---   implies that the folding function needs to be sufficienctly non-strict,
+--   implies that the folding function needs to be sufficiently non-strict,
 --   otherwise the result cannot be productive.
 
 fold :: (a -> b -> b) -> ReceivePort a -> IO b
