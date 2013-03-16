@@ -72,6 +72,9 @@ listen   (SendPort a) =  ReceivePort `fmap` withMVar a newMVar
 --   @ReceivePort@.  These two ports will receive the same messages.
 --   Any messages in the channel that have not been consumed by the
 --   existing port will also appear in the new port.
+--
+--   Warning: this will block if another thread is blocked on 'receive' with
+--   the same 'ReceivePort'.
 
 duplicate :: ReceivePort a  -> IO (ReceivePort a)
 duplicate   (ReceivePort a) =  ReceivePort `fmap` withMVar a newMVar
@@ -100,6 +103,11 @@ send (SendPort s) a = do
 --   where @getChanContents = fold (:)@. Note that the type of 'fold'
 --   implies that the folding function needs to be sufficiently non-strict,
 --   otherwise the result cannot be productive.
+--
+--   Normally, this will return immediately; forcing the returned value will
+--   wait for the next item using lazy IO.  However, 'fold' has the same caveat
+--   as 'duplicate': it will block if other threads are blocked on 'receive'
+--   with the same 'ReceivePort'.
 
 fold :: (a -> b -> b) -> ReceivePort a -> IO b
 fold f recv = unsafeFold f =<< duplicate recv
