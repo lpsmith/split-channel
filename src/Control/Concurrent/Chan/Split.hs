@@ -19,13 +19,13 @@
 --    written to such a channel disappear into the aether and can be
 --    garbage collected.  Note that  @ReceivePorts@ can be subsequently
 --    attached to such a channel via 'listen',  and can be detached via
---    garbage collection.  
+--    garbage collection.
 --
 --    By contrast,  'Control.Concurrent.Chan.Chan' couples a @SendPort@ and
 --    a @ReceivePort@ together in a pair.   Thus keeping a reference to a
 --    @SendPort@ implies that there is at least one reference to a
 --    @ReceivePort@,  which means that messages cannot be garbage collected
---    from an active channel if nobody is listening. 
+--    from an active channel if nobody is listening.
 --
 -- A channel can have multiple @ReceivePorts@.  This results in a publish-
 -- subscribe pattern of communication:  every message will be delivered to
@@ -69,7 +69,6 @@ module Control.Concurrent.Chan.Split
      , duplicate
      , split
      , fold
-     , unsafeFold
      ) where
 
 import Control.Concurrent.Chan.Split.Implementation

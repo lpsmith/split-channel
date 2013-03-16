@@ -122,24 +122,6 @@ foldList f list =
         b <- foldList f list'
         return (f a b)
 
--- | 'unsafeFold' should usually be called only on readers that are not
---   subsequently used in other channel operations.  Otherwise it may be
---   possible that the (non-)evaluation of pure values can cause race
---   conditions inside IO computations.  The safer 'fold' uses 'duplicate'
---   to avoid this issue.
-
-unsafeFold :: (a -> b -> b) -> ReceivePort a -> IO b
-unsafeFold f = loop
-   where
-     loop source = unsafeInterleaveIO $ do
-       a <- receive source
-       b <- loop source
-       return (f a b)
-
-   -- Do not implement 'unsafeFold' with 'foldList', or it will change the
-   -- semantics.  Currently, 'unsafeFold' updates the 'ReceivePort' as it goes.
-
-
 -- | Atomically send many messages at once.   Note that this function
 --   forces the spine of the list beforehand to minimize the critical section,
 --   which also helps prevent exceptions at inopportune times.  Trying to send
