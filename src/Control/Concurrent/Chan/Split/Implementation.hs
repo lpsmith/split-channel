@@ -105,10 +105,14 @@ send (SendPort s) a = do
       putMVar old_hole (Item a new_hole)
       putMVar s new_hole
 
--- | A right fold over a receiver,  a generalization of @getChanContents@
---   where @getChanContents = fold (:)@. Note that the type of 'fold'
---   implies that the folding function needs to be sufficiently non-strict,
---   otherwise the result cannot be productive.
+-- | A right fold over a receiver.   @fold (:)@ is quite similar to
+--   @getChanContents@.  The one difference is that that @fold@ does not
+--   produce any observable side-effects on the @ReceivePort@;  unlike
+--   @getChanContents@ any messages observed by @fold@ are not removed
+--   from the port.
+--
+--   Note that the type of 'fold' implies that the folding function needs
+--   to be sufficiently non-strict, otherwise the result cannot be productive.
 
 fold :: (a -> b -> b) -> ReceivePort a -> IO b
 fold f (ReceivePort ref _) = readIORef ref >>= foldList f
