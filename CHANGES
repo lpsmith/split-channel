@@ -1,3 +1,7 @@
+Version 0.2.0.1:  (2013-03-17)
+   * Fixed the documentation of `fold`,  in particular `fold (:)` is
+     not exactly equivalent to `getChanContents`.
+
 Version 0.2.0.0:  (2013-03-16)
    * Optimized the implementation of `fold`, courtesy of Joey Adams.
 
